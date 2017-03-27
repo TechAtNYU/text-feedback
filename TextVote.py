@@ -25,11 +25,11 @@ def handle_text():
     message_body = request.form['Body']
 
     # Add Vote to the votes dictionary
-    vote = str(message_body).lower()
-    if vote in votes:
-        votes[vote] += 1
-    else:
-        votes[vote] = 1
+    if vote.isDigit() and 1 <= int(vote) <= 5:
+        if vote in votes:
+            votes[vote] += 1
+        else:
+            votes[vote] = 1
 
     # Write to JSON File
     with open('results.txt', 'wb') as f:
