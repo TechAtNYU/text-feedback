@@ -2,12 +2,18 @@
 ## Python Script to build voting results from text messages
 
 ### Dependencies
+#### It's recommended to use a virtual environment
+
 #### Install with `pip`
 `twilio`
 
 `flask`
 
-It's recommended to use a virtual environment
+#### Set the environment variables
+
+`INTRANET_URL`
+
+`INTRANET_TOKEN`
 
 ### Running
 Run the script normally with `python TextVote.py`

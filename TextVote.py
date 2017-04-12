@@ -4,38 +4,69 @@
 # Receives votes from a number and exports a results JSON file
 #
 
-import json
-from flask import Flask, request, redirect
-import twilio.twiml
+import datetime
+import time
+from subprocess import Popen
 
-app = Flask(__name__)
-votes = dict()
+import os
+import requests
 
-@app.route("/", methods=['GET', 'POST'])
-def handle_text():
+event_name = None
+
+
+def name_for_event_now(url, auth_token):
     '''
-    Runs whenever a message triggers this web hook. Will update a
-    dictionary with the current count of responses that match that
-    message string. Will update a JSON text file with the results
-    indefinitely.
-    :return: An HTTP response echo that is REQUIRED by Twilio
+    Accesses Intranet API to get a JSON object of
+    upcoming events
+    :param url: Intranet URL
+    :param auth_token: Intranet Auth Token
+    :return: Name of Event found or None
     '''
-    resp = twilio.twiml.Response()
-    number = request.form['From']
-    message_body = request.form['Body']
+    name = None
+    url += '/events/upcoming?include=addedBy'
+    auth = "Bearer " + auth_token
+    req = requests.get(url, headers={"Authorization": auth})
+    try:
+        data = req.json()
+        for key in data["data"]:
+            att = key["attributes"]
+            start = ""
+            end = ""
+            title = ""
+            if "title" in att:
+                title = att["title"]
+            if "startDateTime" in att:
+                start = att["startDateTime"]
+            if "endDateTime" in att:
+                end = att["endDateTime"]
 
-    # Add Vote to the votes dictionary
-    if vote.isDigit() and 1 <= int(vote) <= 5:
-        if vote in votes:
-            votes[vote] += 1
+            # Check if time intersects now
+            start_date = datetime.datetime.strptime(start, "%Y-%m-%dT%H:%M:%S.%fZ")
+            end_date = datetime.datetime.strptime(end, "%Y-%m-%dT%H:%M:%S.%fZ")
+
+            if start_date < datetime.datetime.utcnow() < end_date:
+                # Event is now
+                name = title
+
+    except ValueError:
+        print "[ ERR ] Error in grabbing events from Intranet"
+
+    return name
+
+
+def event_watch_loop():
+    proc = None
+    while True:
+        event_name = name_for_event_now(str(os.environ["INTRANET_URL"]), str(os.environ["INTRANET_TOKEN"]))
+        event_name = "test"
+        if event_name is not None and proc is None:
+            print "starting server"
+            proc = Popen(['python', 'Server.py', str(event_name)])
         else:
-            votes[vote] = 1
-
-    # Write to JSON File
-    with open('results.txt', 'wb') as f:
-        json.dump(votes, f)
-
-    return str(resp)
+            if proc is not None and proc.pid is not None:
+                print "stopping server"
+                proc.terminate()
+        time.sleep(60)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    event_watch_loop()
